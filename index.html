@@ -261,6 +261,24 @@ input:focus-visible,button:focus-visible,a:focus-visible{outline:3px solid var(-
   $('send').addEventListener('click',function(ev){ev.preventDefault();send()});
   form.addEventListener('submit',function(ev){ev.preventDefault();send()});
 
+  // Independent RSVP backup: every submission is also sent, fire and forget, to our own
+  // S3-backed endpoint, so the guest list survives even if the Google Form data is lost.
+  var BACKUP_URL='https://meta-ai-assistant-production.up.railway.app/api/rsvp/ff-day-2026';
+  var BACKUP_KEY='ffday26_a4bdddede6c22baf';
+  function backup(){
+    try{
+      var bk=new URLSearchParams();
+      bk.set('name',$('name').value);
+      bk.set('phone',$('phone').value);
+      bk.set('email',$('email').value);
+      bk.set('count',String(count));
+      bk.set('member',memberValue());
+      bk.set('club',$('club').value);
+      bk.set('k',BACKUP_KEY);
+      fetch(BACKUP_URL,{method:'POST',mode:'no-cors',credentials:'omit',body:bk}).catch(function(){});
+    }catch(_e){}
+  }
+
   function send(){
     if(pending)return;
     var first=null;
@@ -272,6 +290,7 @@ input:focus-visible,button:focus-visible,a:focus-visible{outline:3px solid var(-
     $('failBanner').hidden=true;
     ['name','phone','email','club'].forEach(function(k){$(k).value=$(k).value.trim()});
     pending=true;$('send').disabled=true;$('send').textContent='Sending…';
+    backup();
     var ctrl=new AbortController(),timer=setTimeout(function(){ctrl.abort()},15000);
     fetch(form.getAttribute('action'),{method:'POST',mode:'no-cors',credentials:'omit',signal:ctrl.signal,
       body:new URLSearchParams(new FormData(form))})
